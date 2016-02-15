@@ -69,10 +69,11 @@
 
     var id_seq = 0;
 
-    var GridStackEngine = function(width, onchange, float_mode, height, items) {
+    var GridStackEngine = function(width, onchange, float_mode, height, direction, items) {
         this.width = width;
         this['float'] = float_mode || false;
         this.height = height || 0;
+        this.direction = direction || 'vertical';
 
         this.nodes = items || [];
         this.onchange = onchange || function() {};
@@ -96,22 +97,70 @@
     };
 
     GridStackEngine.prototype._fix_collisions = function(node) {
+        var self = this,
+            collision_nodes,
+            block_dir = {left : false , right:false},
+            x;
+
         this._sort_nodes(-1);
 
-        var nn = node, has_locked = Boolean(_.find(this.nodes, function(n) { return n.locked }));
+        var nn = node,
+            has_locked = Boolean(_.find(this.nodes, function(n) { return n.locked }));
+
         if (!this.float && !has_locked) {
-            nn = {x: 0, y: node.y, width: this.width, height: node.height};
+            nn = {x: node.x, y: node.y, width: node.width, height: node.height};
         }
 
-        while (true) {
-            var collision_node = _.find(this.nodes, _.bind(function(n) {
-                return n != node && Utils.is_intercepted(n, nn);
-            }, this));
-            if (typeof collision_node == 'undefined') {
+        var collision_nodes = _.filter(this.nodes, function(n) {
+            return n != node && Utils.is_intercepted(n, nn);
+        }, this);
+
+
+        if( this.direction != 'vertical' ){
+            if (_.isEmpty(collision_nodes) ) {
                 return;
+            }else{
+                _.each(collision_nodes,function(collision_node){
+                    //detect horizontal collision if there are any collisions found
+                    _.each(self.nodes, function(n) {
+                        if(n.y === collision_node.y){
+                            var collision_X = collision_node.x - collision_node.width < 0 ? 0 : collision_node.x - collision_node.width ;
+                            console.info(n);
+                            if(n.x === collision_X ){
+                                block_dir.left = true;
+                                return true;
+                            } else if(n.x === collision_node.x + collision_node.width){
+                                block_dir.right = true;
+                                return true;
+                            }
+                        }
+
+                    }, this);
+
+                    if(! block_dir.left) {
+                        x = collision_node.x - collision_node.width < 0 ? 0 : collision_node.x - collision_node.width ;
+                    } else if(! block_dir.right) {
+                        //x = collision_node.x + collision_node.width;
+                    } else {
+                        x = collision_node.x;
+                    }
+
+                    self.move_node(collision_node, x, node.y + node.height, collision_node.width, collision_node.height, true);
+                });
             }
-            this.move_node(collision_node, collision_node.x, node.y + node.height,
-                collision_node.width, collision_node.height, true);
+        } else {
+
+            while (true) {
+                collision_node = _.find(this.nodes, function(n) {
+                    return n != node && Utils.is_intercepted(n, nn);
+                }, this);
+                if (typeof collision_node == 'undefined') {
+                    return;
+                }
+                this.move_node(collision_node, collision_node.x, node.y + node.height,
+                    collision_node.width, collision_node.height, true);
+            }
+
         }
     };
 
@@ -408,6 +457,7 @@
             auto: true,
             min_width: 768,
             float: false,
+            direction: 'vertical',
             static_grid: false,
             _class: 'grid-stack-instance-' + (Math.random() * 10000).toFixed(0),
             animate: Boolean(this.container.attr('data-gs-animate')) || false,
@@ -450,7 +500,7 @@
                 }
             });
             self._update_styles(max_height + 10);
-        }, this.opts.float, this.opts.height);
+        }, this.opts.float, this.opts.height, this.opts.direction);
 
         if (this.opts.auto) {
             var elements = [];
