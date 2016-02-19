@@ -1050,11 +1050,6 @@
         }
     };
 
-    GridStack.prototype.set_direction = function(direction_value) {
-        this.grid.direction = direction_value;
-        this.opts.direction = direction_value;
-    };
-
     scope.GridStackUI = GridStack;
 
     scope.GridStackUI.Utils = Utils;
